@@ -1,0 +1,42 @@
+name: Build ontology
+on:
+  schedule: [cron: '17 5 * * *']
+  workflow_dispatch:
+jobs:
+  Build-Ontology:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Clone mitre2owl repository
+        run: git clone https://github.com/CAPRICA-Project/mitre2owl.git
+      - name: Prepare mitre2owl
+        run: cd mitre2owl && pip3 install -r requirements.txt
+      - name: Clone CWE repository
+        run: git clone https://github.com/CAPRICA-Project/CWE.git
+      - name: Prepare Git environment
+        run: |
+          git config --global user.name "Benjamin Somers"
+          git config --global user.email benjamin.somers@imt-atlantique.fr
+      - name: Commit new LICENSE
+        run: |
+          cp CWE/LICENSE.md .
+          git add LICENSE.md
+          if git commit -m "Update LICENSE"
+          then
+            git push origin latest
+          else
+            echo "Nothing to do"
+          fi
+      - name: Build the ontology
+        run: PYTHONPATH=mitre2owl python3 -m mitre2owl --cwe-schema CWE/schema.xsd --cwe-data CWE/data.xml
+      - name: Commit the ontology
+        run: |
+          VERSION=$(cd CWE && git describe)
+          git add CWE.owx
+          if git commit -m "Automatic update: Version $VERSION"
+          then
+            git tag -a "$VERSION" -m "Version $VERSION"
+            git push --atomic origin latest "$VERSION"
+          else
+            echo "Nothing to do"
+          fi
